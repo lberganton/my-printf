@@ -5,6 +5,7 @@ TEST := test
 # C Compiler
 CC := gcc
 CFLAGS := -Wall -Wextra -Wpedantic -std=c11
+CINCLUDE := -I $(SRC)
 
 # Test
 TESTFILE := $(TEST)/test.c
@@ -14,7 +15,7 @@ CSRC := $(shell find $(SRC) -name '*.c')
 COBJ := $(CSRC:.c=.o)
 
 # Rules
-%.o: %.c:
+%.o: %.c
 	@echo "Compiling $<. . ."
 	@$(CC) -c $(CFLAGS) -o $@ $<
 	@echo "Compiled to $@."
@@ -24,7 +25,7 @@ all: test
 build: $(COBJ)
 
 test: build
-	@$(CC) $(CFLAGS) $(COBJ) -o $(TEST)/a.out $(TESTFILE)
+	@$(CC) $(CFLAGS) $(CINCLUDE) $(COBJ) -o $(TEST)/a.out $(TESTFILE)
 	@./$(TEST)/a.out
 
 .PHONY: clean

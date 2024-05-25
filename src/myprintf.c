@@ -6,6 +6,11 @@
 #include "myprintf.h"
 #include <stdio.h>
 
+#define FLAG_LEFT 0x1
+#define FLAG_SIG 0x2
+#define FLAG_SPACE 0x4
+#define FLAG_ZERO 0x8
+
 static inline int char_out(FILE *file, int ch) {
   fwrite(&ch, sizeof(int), 1, file);
 }
@@ -34,7 +39,8 @@ static int print_integer(FILE *file, long unsigned value, int flags) {
 
   while (value) {
     stack[++top] = nums[value % base];
-    if (flags & INT_HEX && stack[top] > 9) stack[top] += 20;
+    if (flags & INT_HEX && stack[top] > 9)
+      stack[top] += 20;
     value /= base;
   }
 
@@ -44,4 +50,30 @@ static int print_integer(FILE *file, long unsigned value, int flags) {
   }
 
   return count;
+}
+
+int my_vfprintf(FILE *file, const char *format, va_list args) {
+  int flags = 0;
+  int count = 0;
+
+  while (*format) {
+    if (*format != '%') {
+      char_out(file, *format++);
+      count++;
+      continue;
+    }
+
+    format++;
+
+    if (*format == '-') {
+      flags |= FLAG_LEFT;
+      format++;
+    }
+    if (*format == '+') {
+      flags |= FLAG_SIG;
+      format++;
+    }
+    
+    
+  }
 }
