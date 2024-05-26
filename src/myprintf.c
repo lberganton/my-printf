@@ -44,17 +44,17 @@
 #define FLAG_BIN 0x200
 #define FLAG_UPPER 0x400
 
-static inline void char_out(FILE *file, int ch) {
+static inline void _char_out(FILE *file, int ch) {
   fwrite(&ch, sizeof(int), 1, file);
 }
 
-static inline bool is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
+static inline bool _is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
 
-static size_t strrev(FILE *file, const char *str, size_t length) {
+static size_t _strrev_out(FILE *file, const char *str, size_t length) {
   str += length - 1;
 
   for (size_t i = 0; i < length; i++) {
-    char_out(file, *str--);
+    _char_out(file, *str--);
   }
 
   return length;
@@ -124,15 +124,15 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
   }
 
   if (count > width) {
-    strrev(file, stack, count);
+    _strrev_out(file, stack, count);
     return count;
   }
 
   if (flags & FLAG_LEFT) {
-    strrev(file, stack, count);
+    _strrev_out(file, stack, count);
 
     for (int i = count; i < width; i++) {
-      char_out(file, ' ');
+      _char_out(file, ' ');
       count++;
     }
 
@@ -140,11 +140,11 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
   }
 
   for (int i = count; i < width; i++) {
-    char_out(file, ' ');
+    _char_out(file, ' ');
     count++;
   }
 
-  strrev(file, stack, count);
+  _strrev_out(file, stack, count);
 
   return count;
 }
@@ -159,7 +159,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     // If the current char isn't a format specifier, print it and go the next
     // one.
     if (*format != '%') {
-      char_out(file, *format++);
+      _char_out(file, *format++);
       count++;
       continue;
     }
@@ -196,7 +196,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
       format++;
     } else {
-      while (is_digit(*format)) {
+      while (_is_digit(*format)) {
         width = (width * 10) + (*format - '0');
         format++;
       }
@@ -215,7 +215,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
         format++;
       } else {
-        while (is_digit(*format)) {
+        while (_is_digit(*format)) {
           precision = (precision * 10) + (*format - '0');
           format++;
         }
@@ -239,19 +239,19 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     switch (*format) {
     case 'c': {
       if (flags & FLAG_LEFT) {
-        char_out(file, va_arg(args, int));
+        _char_out(file, va_arg(args, int));
 
         for (int i = 1; i < width; i++) {
-          char_out(file, ' ');
+          _char_out(file, ' ');
           count++;
         }
       } else {
         for (int i = 1; i < width; i++) {
-          char_out(file, ' ');
+          _char_out(file, ' ');
           count++;
         }
 
-        char_out(file, va_arg(args, int));
+        _char_out(file, va_arg(args, int));
       }
     } break;
     case 's': {
@@ -264,29 +264,29 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
       if (length > width) {
         while (*ptr) {
-          char_out(file, *ptr++);
+          _char_out(file, *ptr++);
           count++;
         }
       }
 
       if (flags & FLAG_LEFT) {
         while (*ptr) {
-          char_out(file, *ptr++);
+          _char_out(file, *ptr++);
           count++;
         }
 
         for (int i = length; i < width; i++) {
-          char_out(file, ' ');
+          _char_out(file, ' ');
           count++;
         }
       } else {
         for (int i = length; i < width; i++) {
-          char_out(file, ' ');
+          _char_out(file, ' ');
           count++;
         }
 
         while (*ptr) {
-          char_out(file, *ptr++);
+          _char_out(file, *ptr++);
           count++;
         }
       }
