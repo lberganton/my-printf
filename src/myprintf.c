@@ -7,8 +7,8 @@
  * Ins't compatible with all features of the standard printf.
  *
  * Here is a list with all allowed format specifiers:
- *    %d: For decimal numbers;
  *    %i: For decimal numbers;
+ *    %d: For decimal numbers;
  *    %u: For unsigned decimal number;
  *    %x: For hexadecimal numbers (lowercase);
  *    %X: For hexadecimal numbers (upercase);
@@ -18,7 +18,7 @@
  *    %s: For ascii strings.
  *
  * Here is a list with all allowed flags:
- *    Left widthed: '-';
+ *    Left-align: '-';
  *    Force signal: '+';
  *    Space padding: ' ';
  *    Zero paddding: '0';
@@ -35,15 +35,75 @@
 #define FLAG_PLUS 0x4
 #define FLAG_SPACE 0x8
 #define FLAG_ZERO 0x10
-// #define FLAG_HASH 0x20
+#define FLAG_HASH 0x20
 #define FLAG_LONG 0x40
 #define FLAG_SHORT 0x80
+#define FLAG_HEX 0x100
+#define FLAG_OCT 0x200
+#define FLAG_UPPER 0x400
 
 static inline void char_out(FILE *file, int ch) {
   fwrite(&ch, sizeof(int), 1, file);
 }
 
 static inline bool is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
+
+static int itoa_print(FILE *file, int flags, int width, bool negative,
+                long unsigned value) {
+  int count = 0;
+  char stack[32];
+
+  int base = flags & FLAG_HEX ? 16 : flags & FLAG_OCT ? 8 : 10;
+
+  while (value) {
+    int digit = value % base;
+
+    if (FLAG_HEX & digit > 9) {
+      digit = digit % 10 + 'A';
+      if (FLAG_UPPER)
+        digit += 32;
+    } else {
+      digit = digit + '0';
+    }
+
+    stack[count++] = digit;
+    value /= base;
+  }
+
+  if (flags & FLAG_ZERO) {
+    int lenght = 0;
+
+    if (!negative && !(flags & FLAG_SIG) && !(flags & FLAG_SPACE))
+      lenght++;
+
+    if (flags & FLAG_HASH) {
+      if (flags & FLAG_HEX)
+        lenght++;
+      lenght++;
+    }
+
+    while (lenght--)
+      stack[count++] = '0';
+  }
+
+  if (negative)
+    stack[count++] = '-';
+  else if (flags & FLAG_SIG)
+    stack[count++] = '+';
+  else if (flags & FLAG_SPACE)
+    stack[count++] = ' ';
+
+  if (flags & FLAG_HASH) {
+    if (flags & FLAG_HEX)
+      stack[count++] = flags & FLAG_UPPER ? 'X' : 'x';
+    stack[count++] = '0';
+  }
+
+  for (int i = count - 1; i >= 0; i--)
+    char_out(file, stack[count]);
+
+  return count;
+}
 
 int my_vfprintf(FILE *file, const char *format, va_list args) {
   int flags = 0;
@@ -72,6 +132,8 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         flags |= FLAG_PLUS;
       else if (*format == ' ')
         flags |= FLAG_SPACE;
+      else if (*format == '#')
+        flags |= FLAG_HASH;
       else
         break;
 
@@ -152,7 +214,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
       while (ptr[length])
         length++;
-      
+
       if (length > width) {
         while (*ptr) {
           char_out(file, *ptr++);
@@ -165,7 +227,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
           char_out(file, *ptr++);
           count++;
         }
-        
+
         for (int i = length; i < width; i++) {
           char_out(file, ' ');
           count++;
