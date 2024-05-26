@@ -1,7 +1,6 @@
 #include "myprintf.h"
-#include <stdio.h>
 
 int main(void) {
-  printf("% +d\n", 5);
+  my_printf("Teste %s\n", "Cu");
   return 0;
 }
