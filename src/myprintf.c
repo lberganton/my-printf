@@ -4,7 +4,7 @@
  * Created: 05/25/2024
  *
  * A simple printf implementation.
- * This is NOT compatible with all features of the standard printf.
+ * It does NOT support all features of standard printf.
  *
  * Here is a list with all allowed format specifiers:
  *    %i: For decimal numbers;
@@ -50,6 +50,13 @@ static inline void char_out(FILE *file, int ch) {
 
 static inline bool is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
 
+static size_t strrev(FILE *file, const char *str, size_t length) {
+  str += length - 1;
+  for (size_t i = 0; i < length; i++)
+    char_out(file, *str--);
+  return length;
+}
+
 static int itoa_print(FILE *file, int flags, int width, bool negative,
                       long unsigned value) {
   int count = 0;
@@ -61,8 +68,10 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
                                 : 10;
 
   while (value) {
+    // Get the last digit of value.
     int digit = value % base;
 
+    // If its a hexadecimal digit.
     if (digit > 9) {
       digit = digit % 10 + 'a';
       if (flags & FLAG_UPPER)
@@ -76,7 +85,7 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
   }
 
   if (flags & FLAG_ZERO) {
-    int lenght = width > count ? width - count : count;
+    int lenght = width - count;
 
     if (negative || flags & FLAG_SIG || flags & FLAG_SPACE)
       lenght--;
@@ -87,8 +96,10 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
       lenght--;
     }
 
-    while (lenght--)
+    while (lenght > 0) {
       stack[count++] = '0';
+      lenght--;
+    }
   }
 
   if (negative)
@@ -107,18 +118,14 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
   }
 
   if (count > width) {
-    for (int i = count - 1; i >= 0; i--)
-      char_out(file, stack[i]);
+    strrev(file, stack, count);
     return count;
   }
 
   if (flags & FLAG_LEFT) {
-    int i;
+    strrev(file, stack, count);
 
-    for (i = count - 1; i >= 0; i--)
-      char_out(file, stack[i]);
-
-    for (i = count; i < width; i++) {
+    for (int i = count; i < width; i++) {
       char_out(file, ' ');
       count++;
     }
@@ -126,15 +133,12 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
     return count;
   }
 
-  int i;
-
-  for (i = count; i < width; i++) {
+  for (int i = count; i < width; i++) {
     char_out(file, ' ');
     count++;
   }
 
-  for (i = count - 1; i >= 0; i--)
-    char_out(file, stack[i]);
+  strrev(file, stack, count);
 
   return count;
 }
@@ -279,7 +283,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     case 'i':
     case 'd': {
       bool negative = false;
-      long int value;
+      long value;
 
       if (flags & FLAG_LONG)
         value = va_arg(args, long);
@@ -291,7 +295,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         value = -value;
       }
 
-      count += itoa_print(file, flags, width, negative, (unsigned long)value);
+      count += itoa_print(file, flags, width, negative, (long unsigned)value);
     } break;
     case 'u':
     case 'x':
@@ -299,10 +303,10 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     case 'o':
     case 'b':
     case 'B': {
-      unsigned long value;
+      long unsigned value;
 
       if (flags & FLAG_LONG)
-        value = va_arg(args, unsigned long);
+        value = va_arg(args, long unsigned);
       else
         value = va_arg(args, unsigned int);
 

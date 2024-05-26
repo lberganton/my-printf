@@ -3,7 +3,8 @@
 #include <limits.h>
 
 int main(void) {
-  my_printf("%#08b\n", 2);
-  printf("%#o\n", 54);
+  int rm = my_printf("%d\n", 54);
+  int rs = printf("%d\n", 54);
+  printf("RM: %d\nRS: %d\n", rm, rs);
   return 0;
 }
