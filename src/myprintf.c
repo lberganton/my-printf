@@ -372,3 +372,15 @@ int my_printf(const char *format, ...) {
   va_end(args);
   return count;
 }
+
+#undef FLAG_LEFT
+#undef FLAG_SIG
+#undef FLAG_SPACE
+#undef FLAG_ZERO
+#undef FLAG_HASH
+#undef FLAG_LONG
+#undef FLAG_SHORT
+#undef FLAG_HEX
+#undef FLAG_OCT
+#undef FLAG_BIN
+#undef FLAG_UPPER
