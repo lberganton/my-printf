@@ -52,8 +52,11 @@ static inline bool is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
 
 static size_t strrev(FILE *file, const char *str, size_t length) {
   str += length - 1;
-  for (size_t i = 0; i < length; i++)
+
+  for (size_t i = 0; i < length; i++) {
     char_out(file, *str--);
+  }
+
   return length;
 }
 
@@ -73,9 +76,7 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
 
     // If its a hexadecimal digit.
     if (digit > 9) {
-      digit = digit % 10 + 'a';
-      if (flags & FLAG_UPPER)
-        digit -= 32;
+      digit = (digit % 10 + 'a') - (flags & FLAG_UPPER ? 32 : 0);
     } else {
       digit = digit + '0';
     }
@@ -87,12 +88,14 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
   if (flags & FLAG_ZERO) {
     int lenght = width - count;
 
-    if (negative || flags & FLAG_SIG || flags & FLAG_SPACE)
+    if (negative || flags & FLAG_SIG || flags & FLAG_SPACE) {
       lenght--;
+    }
 
     if (flags & FLAG_HASH) {
-      if (flags & FLAG_HEX)
+      if (flags & FLAG_HEX) {
         lenght--;
+      }
       lenght--;
     }
 
@@ -102,18 +105,21 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
     }
   }
 
-  if (negative)
+  if (negative) {
     stack[count++] = '-';
-  else if (flags & FLAG_SIG)
+  } else if (flags & FLAG_SIG) {
     stack[count++] = '+';
-  else if (flags & FLAG_SPACE)
+  } else if (flags & FLAG_SPACE) {
     stack[count++] = ' ';
+  }
 
   if (flags & FLAG_HASH) {
-    if (flags & FLAG_HEX)
+    if (flags & FLAG_HEX) {
       stack[count++] = flags & FLAG_UPPER ? 'X' : 'x';
-    else if (flags & FLAG_BIN)
+    } else if (flags & FLAG_BIN) {
       stack[count++] = flags & FLAG_UPPER ? 'B' : 'b';
+    }
+
     stack[count++] = '0';
   }
 
@@ -162,18 +168,19 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
     // Get the format flags.
     while (true) {
-      if (*format == '-')
+      if (*format == '-') {
         flags |= FLAG_LEFT;
-      else if (*format == '0')
+      } else if (*format == '0') {
         flags |= FLAG_ZERO;
-      else if (*format == '+')
+      } else if (*format == '+') {
         flags |= FLAG_SIG;
-      else if (*format == ' ')
+      } else if (*format == ' ') {
         flags |= FLAG_SPACE;
-      else if (*format == '#')
+      } else if (*format == '#') {
         flags |= FLAG_HASH;
-      else
+      } else {
         break;
+      }
 
       format++;
     }
@@ -181,10 +188,12 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     // Get the width.
     if (*format == '*') {
       width = va_arg(args, int);
+
       if (width < 0) {
         flags |= FLAG_LEFT;
         width = -width;
       }
+
       format++;
     } else {
       while (is_digit(*format)) {
@@ -200,8 +209,9 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
       if (*format == '*') {
         precision = va_arg(args, int);
 
-        if (precision < 0)
+        if (precision < 0) {
           precision = MY_PRINTF_DEFAULT_PRECISION;
+        }
 
         format++;
       } else {
@@ -248,8 +258,9 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
       const char *ptr = va_arg(args, char *);
       int length = 0;
 
-      while (ptr[length])
+      while (ptr[length]) {
         length++;
+      }
 
       if (length > width) {
         while (*ptr) {
@@ -285,10 +296,11 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
       bool negative = false;
       long value;
 
-      if (flags & FLAG_LONG)
+      if (flags & FLAG_LONG) {
         value = va_arg(args, long);
-      else
+      } else {
         value = va_arg(args, int);
+      }
 
       if (value < 0) {
         negative = true;
@@ -305,23 +317,27 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     case 'B': {
       long unsigned value;
 
-      if (flags & FLAG_LONG)
+      if (flags & FLAG_LONG) {
         value = va_arg(args, long unsigned);
-      else
+      } else {
         value = va_arg(args, unsigned int);
+      }
 
-      if (*format == 'x' || *format == 'X')
+      if (*format == 'x' || *format == 'X') {
         flags |= FLAG_HEX;
-      else if (*format == 'b' || *format == 'B')
+      } else if (*format == 'b' || *format == 'B') {
         flags |= FLAG_BIN;
-      else if (*format == 'o')
+      } else if (*format == 'o') {
         flags |= FLAG_OCT;
+      }
 
-      if (*format == 'X' || *format == 'B')
+      if (*format == 'X' || *format == 'B') {
         flags |= FLAG_UPPER;
+      }
 
-      if (flags & FLAG_SIG)
+      if (flags & FLAG_SIG) {
         flags &= ~FLAG_SIG;
+      }
 
       count += itoa_print(file, flags, width, false, value);
     } break;
