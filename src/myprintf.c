@@ -32,15 +32,14 @@
 
 #define FLAG_LEFT 0x1
 #define FLAG_SIG 0x2
-#define FLAG_PLUS 0x4
-#define FLAG_SPACE 0x8
-#define FLAG_ZERO 0x10
-#define FLAG_HASH 0x20
-#define FLAG_LONG 0x40
-#define FLAG_SHORT 0x80
-#define FLAG_HEX 0x100
-#define FLAG_OCT 0x200
-#define FLAG_UPPER 0x400
+#define FLAG_SPACE 0x4
+#define FLAG_ZERO 0x8
+#define FLAG_HASH 0x10
+#define FLAG_LONG 0x20
+#define FLAG_SHORT 0x40
+#define FLAG_HEX 0x80
+#define FLAG_OCT 0x100
+#define FLAG_UPPER 0x200
 
 static inline void char_out(FILE *file, int ch) {
   fwrite(&ch, sizeof(int), 1, file);
@@ -49,7 +48,7 @@ static inline void char_out(FILE *file, int ch) {
 static inline bool is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
 
 static int itoa_print(FILE *file, int flags, int width, bool negative,
-                long unsigned value) {
+                      long unsigned value) {
   int count = 0;
   char stack[32];
 
@@ -58,10 +57,10 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
   while (value) {
     int digit = value % base;
 
-    if (FLAG_HEX & digit > 9) {
-      digit = digit % 10 + 'A';
-      if (FLAG_UPPER)
-        digit += 32;
+    if (digit > 9) {
+      digit = digit % 10 + 'a';
+      if (flags & FLAG_UPPER)
+        digit -= 32;
     } else {
       digit = digit + '0';
     }
@@ -71,15 +70,15 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
   }
 
   if (flags & FLAG_ZERO) {
-    int lenght = 0;
+    int lenght = width > count ? width - count : count;
 
-    if (!negative && !(flags & FLAG_SIG) && !(flags & FLAG_SPACE))
-      lenght++;
+    if (negative || flags & FLAG_SIG || flags & FLAG_SPACE)
+      lenght--;
 
     if (flags & FLAG_HASH) {
       if (flags & FLAG_HEX)
-        lenght++;
-      lenght++;
+        lenght--;
+      lenght--;
     }
 
     while (lenght--)
@@ -99,8 +98,35 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
     stack[count++] = '0';
   }
 
-  for (int i = count - 1; i >= 0; i--)
-    char_out(file, stack[count]);
+  if (count > width) {
+    for (int i = count - 1; i >= 0; i--)
+      char_out(file, stack[i]);
+    return count;
+  }
+
+  if (flags & FLAG_LEFT) {
+    int i;
+
+    for (i = count - 1; i >= 0; i--)
+      char_out(file, stack[i]);
+  
+    for (i = count; i < width; i++) {
+      char_out(file, ' ');
+      count++;
+    }
+
+    return count;
+  }
+
+  int i;
+
+  for (i = count; i < width; i++) {
+    char_out(file, ' ');
+    count++;
+  }
+
+  for (i = count - 1; i >= 0; i--)
+    char_out(file, stack[i]);
 
   return count;
 }
@@ -129,7 +155,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
       else if (*format == '0')
         flags |= FLAG_ZERO;
       else if (*format == '+')
-        flags |= FLAG_PLUS;
+        flags |= FLAG_SIG;
       else if (*format == ' ')
         flags |= FLAG_SPACE;
       else if (*format == '#')
@@ -205,8 +231,6 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
         char_out(file, va_arg(args, int));
       }
-
-      format++;
     } break;
     case 's': {
       const char *ptr = va_arg(args, char *);
@@ -243,10 +267,54 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
           count++;
         }
       }
+    } break;
+    case 'i':
+    case 'd': {
+      bool negative = false;
+      long int value;
 
-      format++;
+      if (flags & FLAG_LONG)
+        value = va_arg(args, long);
+      else
+        value = va_arg(args, int);
+
+      if (value < 0) {
+        negative = true;
+        value = -value;
+      }
+
+      count += itoa_print(file, flags, width, negative, (unsigned long)value);
+    } break;
+    case 'u':
+    case 'x':
+    case 'X':
+    case 'o': {
+      unsigned long value;
+
+      if (flags & FLAG_LONG)
+        value = va_arg(args, unsigned long);
+      else
+        value = va_arg(args, unsigned int);
+      
+      if (*format == 'x' || *format == 'X') {
+        flags |= FLAG_HEX;
+        if (*format == 'X')
+          flags |= FLAG_UPPER;
+      } else if (*format == 'o')
+        flags |= FLAG_OCT;
+
+      if (flags & FLAG_SIG)
+        flags &= ~FLAG_SIG;
+
+      count += itoa_print(file, flags, width, false, value);
     } break;
     }
+
+    flags = 0;
+    width = 0;
+    precision = 0;
+
+    format++;
   }
 
   return count;
