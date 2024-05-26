@@ -3,7 +3,7 @@
 #include <limits.h>
 
 int main(void) {
-  my_printf("%#o\n", 54);
+  my_printf("%#08b\n", 2);
   printf("%#o\n", 54);
   return 0;
 }

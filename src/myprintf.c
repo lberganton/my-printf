@@ -4,7 +4,7 @@
  * Created: 05/25/2024
  *
  * A simple printf implementation.
- * Ins't compatible with all features of the standard printf.
+ * This is NOT compatible with all features of the standard printf.
  *
  * Here is a list with all allowed format specifiers:
  *    %i: For decimal numbers;
@@ -13,6 +13,8 @@
  *    %x: For hexadecimal numbers (lowercase);
  *    %X: For hexadecimal numbers (upercase);
  *    %o: for octal numbers;
+ *    %b: for binary numbers (lowercase);
+ *    %B: for binary numbers (upercase);
  *    %f: For float numbers;
  *    %c: For ascii characters;
  *    %s: For ascii strings.
@@ -39,7 +41,8 @@
 #define FLAG_SHORT 0x40
 #define FLAG_HEX 0x80
 #define FLAG_OCT 0x100
-#define FLAG_UPPER 0x200
+#define FLAG_BIN 0x200
+#define FLAG_UPPER 0x400
 
 static inline void char_out(FILE *file, int ch) {
   fwrite(&ch, sizeof(int), 1, file);
@@ -52,7 +55,10 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
   int count = 0;
   char stack[32];
 
-  int base = flags & FLAG_HEX ? 16 : flags & FLAG_OCT ? 8 : 10;
+  int base = flags & FLAG_HEX   ? 16
+             : flags & FLAG_OCT ? 8
+             : flags & FLAG_BIN ? 2
+                                : 10;
 
   while (value) {
     int digit = value % base;
@@ -95,6 +101,8 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
   if (flags & FLAG_HASH) {
     if (flags & FLAG_HEX)
       stack[count++] = flags & FLAG_UPPER ? 'X' : 'x';
+    else if (flags & FLAG_BIN)
+      stack[count++] = flags & FLAG_UPPER ? 'B' : 'b';
     stack[count++] = '0';
   }
 
@@ -109,7 +117,7 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
 
     for (i = count - 1; i >= 0; i--)
       char_out(file, stack[i]);
-  
+
     for (i = count; i < width; i++) {
       char_out(file, ' ');
       count++;
@@ -288,20 +296,25 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     case 'u':
     case 'x':
     case 'X':
-    case 'o': {
+    case 'o':
+    case 'b':
+    case 'B': {
       unsigned long value;
 
       if (flags & FLAG_LONG)
         value = va_arg(args, unsigned long);
       else
         value = va_arg(args, unsigned int);
-      
-      if (*format == 'x' || *format == 'X') {
+
+      if (*format == 'x' || *format == 'X')
         flags |= FLAG_HEX;
-        if (*format == 'X')
-          flags |= FLAG_UPPER;
-      } else if (*format == 'o')
+      else if (*format == 'b' || *format == 'B')
+        flags |= FLAG_BIN;
+      else if (*format == 'o')
         flags |= FLAG_OCT;
+
+      if (*format == 'X' || *format == 'B')
+        flags |= FLAG_UPPER;
 
       if (flags & FLAG_SIG)
         flags &= ~FLAG_SIG;
