@@ -2,61 +2,54 @@
  * File: myprintf.c
  * Author: Lucas Berganton
  * Created: 05/25/2024
+ * 
+ * A simple printf implementation.
+ * Ins't compatible with all features of the standard printf.
+ * 
+ * Here is a list with all allowed format specifiers:
+ *    %d: For decimal numbers;
+ *    %i: For decimal numbers;
+ *    %u: For unsigned decimal number;
+ *    %x: For hexadecimal numbers (lowercase);
+ *    %X: For hexadecimal numbers (upercase);
+ *    %o: for octal numbers;
+ *    %f: For float numbers;
+ *    %c: For ascii characters;
+ *    %s: For ascii strings.
+ * 
+ * Here is a list with all allowed flags:
+ *    Left widthed: '-';
+ *    Force signal: '+';
+ *    Space padding: ' ';
+ *    Zero paddding: '0';
+ *    Width: A integer;
+ *    Precision: '.' and a integer;
+ *    Flag passed as a argument: '*'.
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #include "myprintf.h"
 #include <stdio.h>
 
 #define FLAG_LEFT 0x1
 #define FLAG_SIG 0x2
-#define FLAG_SPACE 0x4
-#define FLAG_ZERO 0x8
+#define FLAG_PLUS 0x4
+#define FLAG_SPACE 0x8
+#define FLAG_ZERO 0x10
 
 static inline void char_out(FILE *file, int ch) {
   fwrite(&ch, sizeof(int), 1, file);
 }
 
-#define INT_NEGATIVE 0x1
-#define INT_SIGNED 0x2
-#define INT_HEX 0x4
-#define INT_OCT 0x8
-
-static int print_integer(FILE *file, long unsigned value, int flags) {
-  static const char nums[] = "0123456789ABCDEF";
-
-  int base = flags & INT_HEX ? 16 : flags & INT_OCT ? 8 : 10;
-  int count = 0;
-
-  char stack[16];
-  int top = -1;
-
-  if (flags & INT_NEGATIVE) {
-    char_out(file, '-');
-    count++;
-  } else if (flags & INT_SIGNED) {
-    char_out(file, '+');
-    count++;
-  }
-
-  while (value) {
-    stack[++top] = nums[value % base];
-    if (flags & INT_HEX && stack[top] > 9)
-      stack[top] += 20;
-    value /= base;
-  }
-
-  while (top >= 0) {
-    char_out(file, stack[top--]);
-    count++;
-  }
-
-  return count;
-}
+static inline _Bool is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
 
 int my_vfprintf(FILE *file, const char *format, va_list args) {
   int flags = 0;
+  int width = 0;
+  int precision = 0;
   int count = 0;
 
   while (*format) {
+    // If the current char isn't a format specifier, print it and go the next
+    // one.
     if (*format != '%') {
       char_out(file, *format++);
       count++;
@@ -65,42 +58,60 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
     format++;
 
-    if (*format == '-') {
-      flags |= FLAG_LEFT;
+    // Get the format flags.
+    while (1) {
+      if (*format == '-')
+        flags |= FLAG_LEFT;
+      else if (*format == '0')
+        flags |= FLAG_ZERO;
+      else if (*format == '+')
+        flags |= FLAG_PLUS;
+      else if (*format == ' ')
+        flags |= FLAG_SPACE;
+      else
+        break;
+      
       format++;
     }
-    if (*format == '+') {
-      flags |= FLAG_SIG;
+    
+
+    // Get the width.
+    if (*format == '*') {
+      width = va_arg(args, int);
+      if (flags < 0) {
+        flags |= FLAG_LEFT;
+        width = -width;
+      }
       format++;
+    } else {
+      while (is_digit(*format)) {
+        width = (width * 10) + (*format - '0');
+        format++;
+      }
     }
 
-    switch (*format) {
-    case 'c':
-      char_out(file, va_arg(args, int));
-      count++;
-      break;
-    case 'd': {
-      int value = va_arg(args, int);
-      int int_flags = 0;
-      if (value < 0) {
-        int_flags |= INT_NEGATIVE;
-        value = -value;
-      }
-      if (flags & FLAG_SIG) {
-        int_flags |= INT_SIGNED;
-      }
-      count += print_integer(file, (unsigned long)value, int_flags);
-    } break;
-    case 's': {
-      const char *ptr = va_arg(args, const char *);
-      while (*ptr) {
-        char_out(file, *ptr++);
-        count++;
-      }
-    } break;
-    }
+    // Get the precision.
+    if (*format == '.') {
+      format++;
 
-    format++;
+      if (*format == '*') {
+        precision = va_arg(args, int);
+
+        if (precision < 0)
+          precision = MY_PRINTF_DEFAULT_PRECISION;
+
+        format++;
+      } else {
+        while (is_digit(*format)) {
+          precision = (precision * 10) + (*format - '0');
+          format++;
+        }
+
+        if (precision > MY_PRINTF_MAX_PRECISION) {
+          precision = MY_PRINTF_MAX_PRECISION;
+        }
+      }
+    }
   }
 
   return count;

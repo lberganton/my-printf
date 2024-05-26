@@ -4,7 +4,7 @@ TEST := test
 
 # C Compiler
 CC := gcc
-CFLAGS := -Wall -Wextra -Wpedantic -std=c11
+CFLAGS := -Wall -Wextra -Wpedantic -Wshadow -std=c11
 CINCLUDE := -I $(SRC)
 
 # Test
