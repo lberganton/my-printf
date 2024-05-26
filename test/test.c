@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int main(void) {
-  printf("%.20f\n", 0.545);
-  // my_printf("Teste %s\n", "Cu");
+  my_printf("%-12sA\n", "123456789");
+  printf("%-12sA\n", "123456789");
   return 0;
 }
