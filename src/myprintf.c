@@ -6,6 +6,9 @@
  * A simple printf implementation.
  * It does NOT support all features of standard printf.
  *
+ * To format specifier its tipically set as:
+ *    %[flags][width][.precision][length]type
+ *
  * Here is a list with all allowed format specifiers:
  *    %i: For decimal numbers;
  *    %d: For decimal numbers;
@@ -15,7 +18,8 @@
  *    %o: for octal numbers;
  *    %b: for binary numbers (lowercase);
  *    %B: for binary numbers (upercase);
- *    %f: For float numbers;
+ *    %f: For float numbers (lowercase);
+ *    %f: For float numbers (upercase);
  *    %c: For ascii characters;
  *    %s: For ascii strings.
  *
@@ -24,6 +28,7 @@
  *    Force signal: '+';
  *    Space padding: ' ';
  *    Zero paddding: '0';
+ *    Alternate form: '#';
  *    Width: A integer;
  *    Precision: '.' and a integer;
  *    Flag passed as a argument: '*'.
@@ -61,7 +66,7 @@ static size_t _strrev_out(FILE *file, const char *str, size_t length) {
 }
 
 static int _itoa_out(FILE *file, int flags, int width, bool negative,
-                      long unsigned value) {
+                     long unsigned value) {
   int count = 0;
   char stack[32];
 
@@ -74,17 +79,21 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
     // Get the last digit of value.
     char digit = value % base;
 
-    // If its a hexadecimal digit.
+    // Test if its a hexadecimal digit.
     if (digit > 9) {
       digit = (digit % 10 + 'a') - (flags & FLAG_UPPER ? 32 : 0);
     } else {
       digit = digit + '0';
     }
 
+    // Put into the stack.
     stack[count++] = digit;
+
+    // Remove the last digit from value.
     value /= base;
   }
 
+  // Zero padding.
   if (flags & FLAG_ZERO) {
     int lenght = width - count;
 
@@ -93,7 +102,7 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
     }
 
     if (flags & FLAG_HASH) {
-      if (flags & FLAG_HEX) {
+      if ((flags & FLAG_HEX) || (flags & FLAG_BIN)) {
         lenght--;
       }
       lenght--;
@@ -105,6 +114,7 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
     }
   }
 
+  // Put the signal if necessary.
   if (negative) {
     stack[count++] = '-';
   } else if (flags & FLAG_SIG) {
@@ -113,6 +123,7 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
     stack[count++] = ' ';
   }
 
+  // Put the alternate form if necessary.
   if (flags & FLAG_HASH) {
     if (flags & FLAG_HEX) {
       stack[count++] = flags & FLAG_UPPER ? 'X' : 'x';
@@ -123,11 +134,14 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
     stack[count++] = '0';
   }
 
+  // No padding if the whole number representation its greater than the width.
   if (count > width) {
     _strrev_out(file, stack, count);
     return count;
   }
 
+  // Print the number first in case of left padding and then pad the rest. In
+  // the other hand, do the opposite.
   if (flags & FLAG_LEFT) {
     _strrev_out(file, stack, count);
 
@@ -135,16 +149,14 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
       _char_out(file, ' ');
       count++;
     }
+  } else {
+    for (int i = count; i < width; i++) {
+      _char_out(file, ' ');
+      count++;
+    }
 
-    return count;
+    _strrev_out(file, stack, count);
   }
-
-  for (int i = count; i < width; i++) {
-    _char_out(file, ' ');
-    count++;
-  }
-
-  _strrev_out(file, stack, count);
 
   return count;
 }
@@ -166,7 +178,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
     format++;
 
-    // Get the format flags.
+    // Get the flags.
     while (true) {
       if (*format == '-') {
         flags |= FLAG_LEFT;
@@ -183,6 +195,11 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
       }
 
       format++;
+    }
+
+    // Disable the zero-padding flag if a left-padding flag was provided.
+    if ((flags & FLAG_ZERO) && (flags & FLAG_LEFT)) {
+      flags &= ~FLAG_ZERO;
     }
 
     // Get the width.
@@ -226,7 +243,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
       }
     }
 
-    // Check the modifier.
+    // Get the length.
     if (*format == 'l') {
       flags |= FLAG_LONG;
       format++;
@@ -237,6 +254,56 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
     // The main format specifier.
     switch (*format) {
+    case 'i':
+    case 'd': {
+      bool negative = false;
+      long value;
+
+      if (flags & FLAG_LONG) {
+        value = va_arg(args, long);
+      } else {
+        value = va_arg(args, int);
+      }
+
+      if (value < 0) {
+        negative = true;
+        value = -value;
+      }
+
+      count += _itoa_out(file, flags, width, negative, (long unsigned)value);
+    } break;
+    case 'u':
+    case 'x':
+    case 'X':
+    case 'o':
+    case 'b':
+    case 'B': {
+      long unsigned value;
+
+      if (flags & FLAG_LONG) {
+        value = va_arg(args, long unsigned);
+      } else {
+        value = va_arg(args, unsigned int);
+      }
+
+      if (*format == 'x' || *format == 'X') {
+        flags |= FLAG_HEX;
+      } else if (*format == 'b' || *format == 'B') {
+        flags |= FLAG_BIN;
+      } else if (*format == 'o') {
+        flags |= FLAG_OCT;
+      }
+
+      if (*format == 'X' || *format == 'B') {
+        flags |= FLAG_UPPER;
+      }
+
+      if (flags & FLAG_SIG) {
+        flags &= ~FLAG_SIG;
+      }
+
+      count += _itoa_out(file, flags, width, false, value);
+    } break;
     case 'c': {
       if (flags & FLAG_LEFT) {
         _char_out(file, va_arg(args, int));
@@ -290,56 +357,6 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
           count++;
         }
       }
-    } break;
-    case 'i':
-    case 'd': {
-      bool negative = false;
-      long value;
-
-      if (flags & FLAG_LONG) {
-        value = va_arg(args, long);
-      } else {
-        value = va_arg(args, int);
-      }
-
-      if (value < 0) {
-        negative = true;
-        value = -value;
-      }
-
-      count += _itoa_out(file, flags, width, negative, (long unsigned)value);
-    } break;
-    case 'u':
-    case 'x':
-    case 'X':
-    case 'o':
-    case 'b':
-    case 'B': {
-      long unsigned value;
-
-      if (flags & FLAG_LONG) {
-        value = va_arg(args, long unsigned);
-      } else {
-        value = va_arg(args, unsigned int);
-      }
-
-      if (*format == 'x' || *format == 'X') {
-        flags |= FLAG_HEX;
-      } else if (*format == 'b' || *format == 'B') {
-        flags |= FLAG_BIN;
-      } else if (*format == 'o') {
-        flags |= FLAG_OCT;
-      }
-
-      if (*format == 'X' || *format == 'B') {
-        flags |= FLAG_UPPER;
-      }
-
-      if (flags & FLAG_SIG) {
-        flags &= ~FLAG_SIG;
-      }
-
-      count += _itoa_out(file, flags, width, false, value);
     } break;
     }
 
