@@ -60,7 +60,7 @@ static size_t _strrev_out(FILE *file, const char *str, size_t length) {
   return length;
 }
 
-static int itoa_print(FILE *file, int flags, int width, bool negative,
+static int _itoa_out(FILE *file, int flags, int width, bool negative,
                       long unsigned value) {
   int count = 0;
   char stack[32];
@@ -72,7 +72,7 @@ static int itoa_print(FILE *file, int flags, int width, bool negative,
 
   while (value) {
     // Get the last digit of value.
-    int digit = value % base;
+    char digit = value % base;
 
     // If its a hexadecimal digit.
     if (digit > 9) {
@@ -307,7 +307,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         value = -value;
       }
 
-      count += itoa_print(file, flags, width, negative, (long unsigned)value);
+      count += _itoa_out(file, flags, width, negative, (long unsigned)value);
     } break;
     case 'u':
     case 'x':
@@ -339,7 +339,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         flags &= ~FLAG_SIG;
       }
 
-      count += itoa_print(file, flags, width, false, value);
+      count += _itoa_out(file, flags, width, false, value);
     } break;
     }
 
