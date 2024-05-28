@@ -4,8 +4,8 @@
 #include <math.h>
 
 int main(void) {
-  int rm = my_printf("%-07d\n", 60);
-  int rs = printf("%-07d\n", 60);
+  int rm = my_printf("%32d!\n", 32);
+  int rs = printf("%32d!\n", 32);
   printf("RM: %d\nRS: %d\n", rm, rs);
 
   return 0;

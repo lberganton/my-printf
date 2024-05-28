@@ -19,7 +19,7 @@
  *    %b: for binary numbers (lowercase);
  *    %B: for binary numbers (upercase);
  *    %f: For float numbers (lowercase);
- *    %f: For float numbers (upercase);
+ *    %F: For float numbers (upercase);
  *    %c: For ascii characters;
  *    %s: For ascii strings.
  *
@@ -31,7 +31,7 @@
  *    Alternate form: '#';
  *    Width: A integer;
  *    Precision: '.' and a integer;
- *    Flag passed as a argument: '*'.
+ *    Width or precision passed as a argument: '*'.
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #include "myprintf.h"
 #include <stdbool.h>
@@ -53,19 +53,37 @@ static inline void _char_out(FILE *file, int ch) {
   fwrite(&ch, sizeof(int), 1, file);
 }
 
-static inline bool _is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
+static int _pad_out(FILE *file, size_t length, int ch) {
+  int count = 0;
+  for (size_t i = 0; i < length; i++) {
+    _char_out(file, ch);
+    count++;
+  }
+  return count;
+}
 
-static void _strrev_out(FILE *file, const char *str, size_t length) {
+static int _str_out(FILE *file, const char *str, size_t length) {
+  for (size_t i = 0; i < length; i++) {
+    _char_out(file, *str++);
+  }
+  return length;
+}
+
+static int _strrev_out(FILE *file, const char *str, size_t length) {
   str += length - 1;
   for (size_t i = 0; i < length; i++) {
     _char_out(file, *str--);
   }
+  return length;
 }
+
+static inline bool _is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
 
 static int _itoa_out(FILE *file, int flags, int width, bool negative,
                      long unsigned value) {
-  int count = 0;
+  int count;
   char stack[32];
+  int top = 0;
 
   int base = flags & FLAG_HEX   ? 16
              : flags & FLAG_OCT ? 8
@@ -84,7 +102,7 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
     }
 
     // Put into the stack.
-    stack[count++] = digit;
+    stack[top++] = digit;
 
     // Remove the last digit from value.
     value /= base;
@@ -92,7 +110,7 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
 
   // Zero padding.
   if (flags & FLAG_ZERO) {
-    int lenght = width - count;
+    int lenght = width - top;
 
     if (negative || flags & FLAG_SIG || flags & FLAG_SPACE) {
       lenght--;
@@ -106,53 +124,44 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
     }
 
     while (lenght > 0) {
-      stack[count++] = '0';
+      stack[top++] = '0';
       lenght--;
     }
   }
 
   // Put the signal if necessary.
   if (negative) {
-    stack[count++] = '-';
+    stack[top++] = '-';
   } else if (flags & FLAG_SIG) {
-    stack[count++] = '+';
+    stack[top++] = '+';
   } else if (flags & FLAG_SPACE) {
-    stack[count++] = ' ';
+    stack[top++] = ' ';
   }
 
   // Put the alternate form if necessary.
   if (flags & FLAG_HASH) {
     if (flags & FLAG_HEX) {
-      stack[count++] = flags & FLAG_UPPER ? 'X' : 'x';
+      stack[top++] = flags & FLAG_UPPER ? 'X' : 'x';
     } else if (flags & FLAG_BIN) {
-      stack[count++] = flags & FLAG_UPPER ? 'B' : 'b';
+      stack[top++] = flags & FLAG_UPPER ? 'B' : 'b';
     }
 
-    stack[count++] = '0';
+    stack[top++] = '0';
   }
 
   // No padding if the whole number representation its greater than the width.
-  if (count > width) {
-    _strrev_out(file, stack, count);
-    return count;
+  if (top > width) {
+    return _strrev_out(file, stack, top);
   }
 
   // Print the number first in case of left padding and then pad the rest. In
   // the other hand, do the opposite.
   if (flags & FLAG_LEFT) {
-    _strrev_out(file, stack, count);
-
-    for (int i = count; i < width; i++) {
-      _char_out(file, ' ');
-      count++;
-    }
+    count = _strrev_out(file, stack, top);
+    count += _pad_out(file, width - top, ' ');
   } else {
-    for (int i = count; i < width; i++) {
-      _char_out(file, ' ');
-      count++;
-    }
-
-    _strrev_out(file, stack, count);
+    count = _pad_out(file, width - top, ' ');
+    count += _strrev_out(file, stack, top);
   }
 
   return count;
@@ -295,26 +304,19 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         flags |= FLAG_UPPER;
       }
 
-      if (flags & FLAG_SIG) {
-        flags &= ~FLAG_SIG;
-      }
+      flags &= ~FLAG_SIG;
+      flags &= ~FLAG_SPACE;
 
       count += _itoa_out(file, flags, width, false, value);
     } break;
     case 'c': {
+      count++;
+
       if (flags & FLAG_LEFT) {
         _char_out(file, va_arg(args, int));
-
-        for (int i = 1; i < width; i++) {
-          _char_out(file, ' ');
-          count++;
-        }
+        count += _pad_out(file, width ? width - 1 : 0, ' ');
       } else {
-        for (int i = 1; i < width; i++) {
-          _char_out(file, ' ');
-          count++;
-        }
-
+        count += _pad_out(file, width ? width - 1 : 0, ' ');
         _char_out(file, va_arg(args, int));
       }
     } break;
@@ -326,33 +328,12 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         length++;
       }
 
-      if (length > width) {
-        while (*ptr) {
-          _char_out(file, *ptr++);
-          count++;
-        }
-      }
-
       if (flags & FLAG_LEFT) {
-        while (*ptr) {
-          _char_out(file, *ptr++);
-          count++;
-        }
-
-        for (int i = length; i < width; i++) {
-          _char_out(file, ' ');
-          count++;
-        }
+        count += _str_out(file, ptr, length);
+        count += _pad_out(file, width > length ? width - length : 0, ' ');
       } else {
-        for (int i = length; i < width; i++) {
-          _char_out(file, ' ');
-          count++;
-        }
-
-        while (*ptr) {
-          _char_out(file, *ptr++);
-          count++;
-        }
+        count += _pad_out(file, width > length ? width - length : 0, ' ');
+        count += _str_out(file, ptr, length);
       }
     } break;
     }
