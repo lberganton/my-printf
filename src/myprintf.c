@@ -55,14 +55,11 @@ static inline void _char_out(FILE *file, int ch) {
 
 static inline bool _is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
 
-static size_t _strrev_out(FILE *file, const char *str, size_t length) {
+static void _strrev_out(FILE *file, const char *str, size_t length) {
   str += length - 1;
-
   for (size_t i = 0; i < length; i++) {
     _char_out(file, *str--);
   }
-
-  return length;
 }
 
 static int _itoa_out(FILE *file, int flags, int width, bool negative,
@@ -80,7 +77,7 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
     char digit = value % base;
 
     // Test if its a hexadecimal digit.
-    if (digit > 9) {
+    if (digit >= 10) {
       digit = (digit % 10 + 'a') - (flags & FLAG_UPPER ? 32 : 0);
     } else {
       digit = digit + '0';
