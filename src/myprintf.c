@@ -83,30 +83,19 @@ static int _strrev_out(FILE *file, const char *str, size_t length) {
 static inline bool _is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
 
 static double _ceilf(double value, int precision) {
-  int integer_part = (int)value;
-  double frac_part = value - integer_part;
-
-  for (int i = 0; i < precision + 1; i++) {
-    frac_part *= 10;
+  double multiplier = 1.0;
+  
+  for (int i = 0; i < precision; i++) {
+    multiplier *= 10.0;
   }
 
-  frac_part = (int)frac_part;
-
-  if ((int)frac_part % 10 > 5) {
-    frac_part += 10 - (int)frac_part % 10;
-
-    if ((int)frac_part == 1) {
-      integer_part++;
-    }
+  if (value >= 0) {
+    value = (long long) (value * multiplier + 0.5);
   } else {
-    frac_part -= (int)frac_part % 10;
+    value = (long long) (value * multiplier - 0.5);
   }
 
-  for (int i = 0; i < precision + 1; i++) {
-    frac_part /= 10;
-  }
-
-  return integer_part + frac_part;
+  return value / multiplier;
 }
 
 static int _itoa_out(FILE *file, int flags, int width, bool negative,
@@ -199,7 +188,7 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
 
 static int _ftoa_out(FILE *file, int flags, int width, int precision,
                      bool negative, double value) {
-  int count;
+  int count = 0;
   char stack[MY_PRINTF_MAX_PRECISION + 33];
   int top = 0;
 
@@ -226,28 +215,75 @@ static int _ftoa_out(FILE *file, int flags, int width, int precision,
 
   value = _ceilf(value, precision);
 
-  int int_part = (int)value;
+  long unsigned int_part = (int)value;
   double frac_part = value - (double)int_part;
-
+  
   for (int i = 0; i < precision; i++) {
-    stack[top++] = '0';
+    frac_part *= 10.0;
   }
 
-  int frac_length = top;
-  double temp = frac_part;
+  long unsigned frac_int = (long unsigned)frac_part;
 
-  while (precision) {
-    temp *= 10;
-
-    char digit = (long unsigned)temp % 10 + '0';
-    stack[top - 1 - frac_length--] = digit;
-
-    temp -= (int)temp;
-
-    // printf("%c", digit);
-
-    precision--;
+  while (frac_int) {
+    char digit = frac_int % 10 + '0';
+    stack[top++] = digit;
+    frac_int /= 10;
   }
+
+  if (precision) {
+    stack[top++] = '.';
+  }
+
+  while (int_part) {
+    // Get the last digit of value.
+    char digit = int_part % 10 + '0';
+
+    // Put into the stack.
+    stack[top++] = digit;
+
+    // Remove the last digit from value.
+    int_part /= 10;
+  }
+
+  // Zero padding.
+  if (flags & FLAG_ZERO) {
+    int lenght = width - top;
+
+    if (negative || flags & FLAG_SIG || flags & FLAG_SPACE) {
+      lenght--;
+    }
+
+    while (lenght > 0) {
+      stack[top++] = '0';
+      lenght--;
+    }
+  }
+
+  // Put the signal if necessary.
+  if (negative) {
+    stack[top++] = '-';
+  } else if (flags & FLAG_SIG) {
+    stack[top++] = '+';
+  } else if (flags & FLAG_SPACE) {
+    stack[top++] = ' ';
+  }
+
+  // No padding if the whole number representation its greater than the width.
+  if (top > width) {
+    return _strrev_out(file, stack, top);
+  }
+
+  // Print the number first in case of left padding and then pad the rest. In
+  // the other hand, do the opposite.
+  if (flags & FLAG_LEFT) {
+    count = _strrev_out(file, stack, top);
+    count += _pad_out(file, width - top, ' ');
+  } else {
+    count = _pad_out(file, width - top, ' ');
+    count += _strrev_out(file, stack, top);
+  }
+
+  return count;
 }
 
 int my_vfprintf(FILE *file, const char *format, va_list args) {
@@ -406,7 +442,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
       double value = va_arg(args, double);
 
-      _ftoa_out(file, flags, width, precision, value < 0.0 ? true : false,
+      count += _ftoa_out(file, flags, width, precision, value < 0.0 ? true : false,
                 value);
     } break;
 
