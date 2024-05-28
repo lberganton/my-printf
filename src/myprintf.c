@@ -34,6 +34,7 @@
  *    Width or precision passed as a argument: '*'.
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #include "myprintf.h"
+#include <float.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -63,10 +64,12 @@ static int _pad_out(FILE *file, size_t length, int ch) {
 }
 
 static int _str_out(FILE *file, const char *str, size_t length) {
-  for (size_t i = 0; i < length; i++) {
+  int count = 0;
+  for (size_t i = 0; i < length && *str; i++) {
     _char_out(file, *str++);
+    count++;
   }
-  return length;
+  return count;
 }
 
 static int _strrev_out(FILE *file, const char *str, size_t length) {
@@ -78,6 +81,33 @@ static int _strrev_out(FILE *file, const char *str, size_t length) {
 }
 
 static inline bool _is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
+
+static double _ceilf(double value, int precision) {
+  int integer_part = (int)value;
+  double frac_part = value - integer_part;
+
+  for (int i = 0; i < precision + 1; i++) {
+    frac_part *= 10;
+  }
+
+  frac_part = (int)frac_part;
+
+  if ((int)frac_part % 10 > 5) {
+    frac_part += 10 - (int)frac_part % 10;
+
+    if ((int)frac_part == 1) {
+      integer_part++;
+    }
+  } else {
+    frac_part -= (int)frac_part % 10;
+  }
+
+  for (int i = 0; i < precision + 1; i++) {
+    frac_part /= 10;
+  }
+
+  return integer_part + frac_part;
+}
 
 static int _itoa_out(FILE *file, int flags, int width, bool negative,
                      long unsigned value) {
@@ -167,11 +197,64 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
   return count;
 }
 
+static int _ftoa_out(FILE *file, int flags, int width, int precision,
+                     bool negative, double value) {
+  int count;
+  char stack[MY_PRINTF_MAX_PRECISION + 33];
+  int top = 0;
+
+  // Special values
+  if (value != value) {
+    return _str_out(file, flags & FLAG_UPPER ? "NAN" : "nan", 3);
+  }
+  if (value > DBL_MAX) {
+    if (flags & FLAG_UPPER) {
+      return _str_out(file, flags & FLAG_SIG ? "+INF" : "INF", 4);
+    }
+    return _str_out(file, flags & FLAG_SIG ? "+inf" : "inf", 4);
+  }
+  if (value < -DBL_MAX) {
+    if (flags & FLAG_UPPER) {
+      return _str_out(file, flags & FLAG_SIG ? "-INF" : "INF", 4);
+    }
+    return _str_out(file, flags & FLAG_SIG ? "-inf" : "inf", 4);
+  }
+
+  if (negative) {
+    value = -value;
+  }
+
+  value = _ceilf(value, precision);
+
+  int int_part = (int)value;
+  double frac_part = value - (double)int_part;
+
+  for (int i = 0; i < precision; i++) {
+    stack[top++] = '0';
+  }
+
+  int frac_length = top;
+  double temp = frac_part;
+
+  while (precision) {
+    temp *= 10;
+
+    char digit = (long unsigned)temp % 10 + '0';
+    stack[top - 1 - frac_length--] = digit;
+
+    temp -= (int)temp;
+
+    // printf("%c", digit);
+
+    precision--;
+  }
+}
+
 int my_vfprintf(FILE *file, const char *format, va_list args) {
   int flags = 0;
-  int width = 0;
-  int precision = 0;
   int count = 0;
+  int width = 0;
+  int precision = MY_PRINTF_DEFAULT_PRECISION;
 
   while (*format) {
     // If the current char isn't a format specifier, print it and go the next
@@ -232,15 +315,18 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
       if (*format == '*') {
         precision = va_arg(args, int);
 
-        if (precision < 0) {
+        if (precision < 0) {precision = 0;
           precision = MY_PRINTF_DEFAULT_PRECISION;
         }
 
         format++;
       } else {
-        while (_is_digit(*format)) {
-          precision = (precision * 10) + (*format - '0');
-          format++;
+        if (_is_digit(*format)) {
+          precision = 0;
+          do {
+            precision = (precision * 10) + (*format - '0');
+            format++;
+          } while (_is_digit(*format));
         }
 
         if (precision > MY_PRINTF_MAX_PRECISION) {
@@ -276,8 +362,11 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         value = -value;
       }
 
+      flags &= ~FLAG_HASH;
+
       count += _itoa_out(file, flags, width, negative, (long unsigned)value);
     } break;
+
     case 'u':
     case 'x':
     case 'X':
@@ -304,11 +393,23 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         flags |= FLAG_UPPER;
       }
 
-      flags &= ~FLAG_SIG;
-      flags &= ~FLAG_SPACE;
+      flags &= ~(FLAG_SIG | FLAG_SPACE);
 
       count += _itoa_out(file, flags, width, false, value);
     } break;
+
+    case 'f':
+    case 'F': {
+      if (*format == 'F') {
+        flags |= FLAG_UPPER;
+      }
+
+      double value = va_arg(args, double);
+
+      _ftoa_out(file, flags, width, precision, value < 0.0 ? true : false,
+                value);
+    } break;
+
     case 'c': {
       count++;
 
@@ -338,11 +439,15 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         count += _str_out(file, ptr, length);
       }
     } break;
+
+    default:
+      _char_out(file, *format);
+      count++;
     }
 
     flags = 0;
     width = 0;
-    precision = 0;
+    precision = MY_PRINTF_DEFAULT_PRECISION;
 
     format++;
   }
