@@ -328,11 +328,13 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         length++;
       }
 
-      if (flags & FLAG_LEFT) {
+      if (length > width) {
         count += _str_out(file, ptr, length);
-        count += _pad_out(file, width > length ? width - length : 0, ' ');
+      } else if (flags & FLAG_LEFT) {
+        count += _str_out(file, ptr, length);
+        count += _pad_out(file, width - length, ' ');
       } else {
-        count += _pad_out(file, width > length ? width - length : 0, ' ');
+        count += _pad_out(file, width - length, ' ');
         count += _str_out(file, ptr, length);
       }
     } break;
