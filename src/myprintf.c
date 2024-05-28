@@ -203,33 +203,37 @@ static int _ftoa_out(FILE *file, int flags, int width, int precision,
     multiplier *= 10.0;
   }
 
+  // Round the number.
   value = (long unsigned)(value * multiplier + 0.5);
 
   long unsigned int_part = (long unsigned)value / multiplier;
   long unsigned frac_part = (value / multiplier - int_part) * multiplier;
 
   while (frac_part) {
-    char digit = frac_part % 10 + '0';
-    stack[top++] = digit;
-    frac_part /= 10;
-  }
-
-  while (top < precision) {
-    stack[top++] = '0';
-  }
-
-  if (precision) {
-    stack[top++] = '.';
-  }
-
-  while (int_part) {
     // Get the last digit of value.
-    char digit = int_part % 10 + '0';
-
+    char digit = frac_part % 10 + '0';
+    
     // Put into the stack.
     stack[top++] = digit;
 
     // Remove the last digit from value.
+    frac_part /= 10;
+  }
+
+  // Fill with zeros if necessary.
+  while (top < precision) {
+    stack[top++] = '0';
+  }
+
+  // Put a dot if necessary.
+  if (precision) {
+    stack[top++] = '.';
+  }
+
+  // Same algorithm of the fractional part for the integer part.
+  while (int_part) {
+    char digit = int_part % 10 + '0';
+    stack[top++] = digit;
     int_part /= 10;
   }
 
