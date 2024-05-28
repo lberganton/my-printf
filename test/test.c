@@ -2,8 +2,8 @@
 #include <stdio.h>
 
 int main(void) {
-  int rm = my_printf("%.50f\n", 3.5423);
-  int rs = printf("%.50f\n", 3.5423);
+  int rm = my_printf("%f\n", 3.99);
+  int rs = printf("%f\n", 3.99);
   printf("RM: %d\nRS: %d\n", rm, rs);
 
   return 0;

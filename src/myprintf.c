@@ -82,22 +82,6 @@ static int _strrev_out(FILE *file, const char *str, size_t length) {
 
 static inline bool _is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
 
-static double _ceilf(double value, int precision) {
-  double multiplier = 1.0;
-  
-  for (int i = 0; i < precision; i++) {
-    multiplier *= 10.0;
-  }
-
-  if (value >= 0) {
-    value = (long long) (value * multiplier + 0.5);
-  } else {
-    value = (long long) (value * multiplier - 0.5);
-  }
-
-  return value / multiplier;
-}
-
 static int _itoa_out(FILE *file, int flags, int width, bool negative,
                      long unsigned value) {
   int count;
@@ -213,21 +197,25 @@ static int _ftoa_out(FILE *file, int flags, int width, int precision,
     value = -value;
   }
 
-  value = _ceilf(value, precision);
+  double multiplier = 1.0;
 
-  long unsigned int_part = (int)value;
-  double frac_part = value - (double)int_part;
-  
   for (int i = 0; i < precision; i++) {
-    frac_part *= 10.0;
+    multiplier *= 10.0;
   }
 
-  long unsigned frac_int = (long unsigned)frac_part;
+  value = (long unsigned)(value * multiplier + 0.5);
 
-  while (frac_int) {
-    char digit = frac_int % 10 + '0';
+  long unsigned int_part = (long unsigned)value / multiplier;
+  long unsigned frac_part = (value / multiplier - int_part) * multiplier;
+
+  while (frac_part) {
+    char digit = frac_part % 10 + '0';
     stack[top++] = digit;
-    frac_int /= 10;
+    frac_part /= 10;
+  }
+
+  while (top < precision) {
+    stack[top++] = '0';
   }
 
   if (precision) {
@@ -348,17 +336,19 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     if (*format == '.') {
       format++;
 
+      precision = 0;
+
       if (*format == '*') {
         precision = va_arg(args, int);
 
-        if (precision < 0) {precision = 0;
+        if (precision < 0) {
+          precision = 0;
           precision = MY_PRINTF_DEFAULT_PRECISION;
         }
 
         format++;
       } else {
         if (_is_digit(*format)) {
-          precision = 0;
           do {
             precision = (precision * 10) + (*format - '0');
             format++;
@@ -442,8 +432,8 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
       double value = va_arg(args, double);
 
-      count += _ftoa_out(file, flags, width, precision, value < 0.0 ? true : false,
-                value);
+      count += _ftoa_out(file, flags, width, precision,
+                         value < 0.0 ? true : false, value);
     } break;
 
     case 'c': {
