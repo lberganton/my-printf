@@ -20,7 +20,7 @@ COBJ := $(CSRC:.c=.o)
 	@$(CC) -c $(CFLAGS) -o $@ $<
 	@echo "Compiled to $@."
 
-all: test
+all: build
 
 build: $(COBJ)
 
