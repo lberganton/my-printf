@@ -8,7 +8,7 @@ Há um suporte as principais flags e especificadores de formato do `printf` padr
 
 Um especificador de formato completo segue a seguinte ordem:
 
-```
+```txt
 %[flags][largura][.precisão][modificador de tipo]código
 ```
 
@@ -50,8 +50,6 @@ Um especificador de formato completo segue a seguinte ordem:
 | h                       | short int     | short unsigned int    |
 | l                       | long int      | long unsigned int     |
 | ll                      | long long int | long long usigned int |
-
-Largura e Precisão podem ser passados como argumento se usado o caractere '*'.
 
 ## Modo de Usar
 
@@ -96,7 +94,7 @@ Para montar o projeto é necessário um compilador C, de preferência o GCC e um
 
 Então basta usar o comando:
 
-```
+```bash
 make
 ```
 
@@ -105,6 +103,7 @@ Após isso a biblioteca será montada, resultando no arquivo objeto `myprintf.o`
 Quando for usa-la compile seu programa linkando com este arquivo.
 
 **Exemplo:**
-```
+
+```bash
 gcc seu_arquivo.c myprintf.o
 ```
