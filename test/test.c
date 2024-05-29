@@ -1,3 +1,11 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * File: test.c
+ * Author: Lucas Berganton
+ * Created: 05/25/2024
+ *
+ * This file make tests comparing the output and return of GCC printf and
+ * MyPrintf.
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 #include "myprintf.h"
 #include <stdarg.h>
 #include <stdio.h>
