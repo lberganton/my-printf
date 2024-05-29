@@ -15,13 +15,14 @@
  *    %u: For unsigned decimal number;
  *    %x: For hexadecimal numbers (lowercase);
  *    %X: For hexadecimal numbers (uppercase);
- *    %o: for octal numbers;
- *    %b: for binary numbers (lowercase);
- *    %B: for binary numbers (uppercase);
+ *    %o: For octal numbers;
+ *    %b: For binary numbers (lowercase);
+ *    %B: For binary numbers (uppercase);
  *    %f: For float numbers (lowercase);
  *    %F: For float numbers (uppercase);
  *    %c: For ascii characters;
- *    %s: For ascii strings.
+ *    %s: For ascii strings;
+ *    %%: For '%' character.
  *
  * Here is a list with all allowed flags:
  *    Left-align: '-';
@@ -436,9 +437,9 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
       } else if (flags & FLAG_LONG) {
         value = va_arg(args, long);
       } else if (flags & FLAG_SHORT_SHORT) {
-        value = (unsigned char) va_arg(args, unsigned);
+        value = (unsigned char)va_arg(args, unsigned);
       } else if (flags & FLAG_SHORT) {
-        value = (short unsigned) va_arg(args, unsigned);
+        value = (short unsigned)va_arg(args, unsigned);
       } else {
         value = va_arg(args, unsigned int);
       }
@@ -487,6 +488,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         _char_out(file, va_arg(args, int));
       }
     } break;
+
     case 's': {
       const char *ptr = va_arg(args, char *);
       int length = 0;
@@ -541,15 +543,17 @@ int my_printf(const char *format, ...) {
   return count;
 }
 
-#undef FLAG_LEFT
-#undef FLAG_SIG
-#undef FLAG_SPACE
-#undef FLAG_ZERO
-#undef FLAG_HASH
-#undef FLAG_LONG
-#undef FLAG_SHORT
-#undef FLAG_HEX
-#undef FLAG_OCT
-#undef FLAG_BIN
-#undef FLAG_UPPER
-#undef FLAG_PREC
+#define FLAG_LEFT
+#define FLAG_SIG
+#define FLAG_SPACE
+#define FLAG_ZERO
+#define FLAG_HASH
+#define FLAG_LONG
+#define FLAG_LONG_LONG
+#define FLAG_SHORT
+#define FLAG_SHORT_SHORT
+#define FLAG_HEX
+#define FLAG_OCT
+#define FLAG_BIN
+#define FLAG_UPPER
+#define FLAG_PREC
