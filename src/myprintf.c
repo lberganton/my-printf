@@ -44,12 +44,14 @@
 #define FLAG_ZERO 0x8
 #define FLAG_HASH 0x10
 #define FLAG_LONG 0x20
-#define FLAG_SHORT 0x40
-#define FLAG_HEX 0x80
-#define FLAG_OCT 0x100
-#define FLAG_BIN 0x200
-#define FLAG_UPPER 0x400
-#define FLAG_PREC 0x800
+#define FLAG_LONG_LONG 0x40
+#define FLAG_SHORT 0x80
+#define FLAG_SHORT_SHORT 0x100
+#define FLAG_HEX 0x200
+#define FLAG_OCT 0x400
+#define FLAG_BIN 0x800
+#define FLAG_UPPER 0x1000
+#define FLAG_PREC 0x2000
 
 static inline void _char_out(FILE *file, int ch) {
   fwrite(&ch, sizeof(int), 1, file);
@@ -86,7 +88,7 @@ static inline bool _is_digit(const char ch) {
 }
 
 static int _itoa_out(FILE *file, int flags, int width, bool negative,
-                     long unsigned value) {
+                     long long unsigned value) {
   int count;
   char stack[32];
   int top = 0;
@@ -207,10 +209,11 @@ static int _ftoa_out(FILE *file, int flags, int width, int precision,
   }
 
   // Round the number.
-  value = (long unsigned)(value * multiplier + 0.5);
+  value = (long long unsigned)(value * multiplier + 0.5);
 
-  long unsigned int_part = (long unsigned)value / multiplier;
-  long unsigned frac_part = (value / multiplier - int_part) * multiplier;
+  long long unsigned int_part = (long long unsigned)value / multiplier;
+  long long unsigned frac_part =
+      (long long unsigned)value - int_part * multiplier;
 
   while (frac_part) {
     // Get the last digit of value.
@@ -234,10 +237,14 @@ static int _ftoa_out(FILE *file, int flags, int width, int precision,
   }
 
   // Same algorithm of the fractional part for the integer part.
-  while (int_part) {
-    char digit = int_part % 10 + '0';
-    stack[top++] = digit;
-    int_part /= 10;
+  if (int_part) {
+    do {
+      char digit = int_part % 10 + '0';
+      stack[top++] = digit;
+      int_part /= 10;
+    } while (int_part);
+  } else {
+    stack[top++] = '0';
   }
 
   // Zero padding.
@@ -373,9 +380,17 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     if (*format == 'l') {
       flags |= FLAG_LONG;
       format++;
+      if (*format == 'l') {
+        flags |= FLAG_LONG_LONG;
+        format++;
+      }
     } else if (*format == 'h') {
       flags |= FLAG_SHORT;
       format++;
+      if (*format == 'h') {
+        flags |= FLAG_SHORT_SHORT;
+        format++;
+      }
     }
 
     // The main format specifier.
@@ -383,10 +398,16 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     case 'i':
     case 'd': {
       bool negative = false;
-      long value;
+      long long value;
 
-      if (flags & FLAG_LONG) {
+      if (flags & FLAG_LONG_LONG) {
+        value = va_arg(args, long long);
+      } else if (flags & FLAG_LONG) {
         value = va_arg(args, long);
+      } else if (flags & FLAG_SHORT_SHORT) {
+        value = (char)va_arg(args, long);
+      } else if (flags & FLAG_SHORT) {
+        value = (short)va_arg(args, int);
       } else {
         value = va_arg(args, int);
       }
@@ -398,7 +419,8 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
       flags &= ~FLAG_HASH;
 
-      count += _itoa_out(file, flags, width, negative, (long unsigned)value);
+      count +=
+          _itoa_out(file, flags, width, negative, (long long unsigned)value);
     } break;
 
     case 'u':
@@ -407,10 +429,16 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     case 'o':
     case 'b':
     case 'B': {
-      long unsigned value;
+      long long unsigned value;
 
-      if (flags & FLAG_LONG) {
-        value = va_arg(args, long unsigned);
+      if (flags & FLAG_LONG_LONG) {
+        value = va_arg(args, long long unsigned);
+      } else if (flags & FLAG_LONG) {
+        value = va_arg(args, long);
+      } else if (flags & FLAG_SHORT_SHORT) {
+        value = (unsigned char) va_arg(args, unsigned);
+      } else if (flags & FLAG_SHORT) {
+        value = (short unsigned) va_arg(args, unsigned);
       } else {
         value = va_arg(args, unsigned int);
       }
