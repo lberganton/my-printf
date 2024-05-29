@@ -508,6 +508,11 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
       }
     } break;
 
+    case '%':
+      _char_out(file, *format);
+      count++;
+      break;
+
     default:
       _char_out(file, *format);
       count++;
