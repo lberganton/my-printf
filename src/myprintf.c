@@ -14,12 +14,12 @@
  *    %d: For decimal numbers;
  *    %u: For unsigned decimal number;
  *    %x: For hexadecimal numbers (lowercase);
- *    %X: For hexadecimal numbers (upercase);
+ *    %X: For hexadecimal numbers (uppercase);
  *    %o: for octal numbers;
  *    %b: for binary numbers (lowercase);
- *    %B: for binary numbers (upercase);
+ *    %B: for binary numbers (uppercase);
  *    %f: For float numbers (lowercase);
- *    %F: For float numbers (upercase);
+ *    %F: For float numbers (uppercase);
  *    %c: For ascii characters;
  *    %s: For ascii strings.
  *
@@ -49,6 +49,7 @@
 #define FLAG_OCT 0x100
 #define FLAG_BIN 0x200
 #define FLAG_UPPER 0x400
+#define FLAG_PREC 0x800
 
 static inline void _char_out(FILE *file, int ch) {
   fwrite(&ch, sizeof(int), 1, file);
@@ -80,7 +81,9 @@ static int _strrev_out(FILE *file, const char *str, size_t length) {
   return length;
 }
 
-static inline bool _is_digit(const char ch) { return ch >= '0' && ch <= '9'; }
+static inline bool _is_digit(const char ch) {
+  return (ch >= '0') && (ch <= '9');
+}
 
 static int _itoa_out(FILE *file, int flags, int width, bool negative,
                      long unsigned value) {
@@ -212,7 +215,7 @@ static int _ftoa_out(FILE *file, int flags, int width, int precision,
   while (frac_part) {
     // Get the last digit of value.
     char digit = frac_part % 10 + '0';
-    
+
     // Put into the stack.
     stack[top++] = digit;
 
@@ -282,7 +285,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
   int flags = 0;
   int count = 0;
   int width = 0;
-  int precision = MY_PRINTF_DEFAULT_PRECISION;
+  int precision = 0;
 
   while (*format) {
     // If the current char isn't a format specifier, print it and go the next
@@ -315,7 +318,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     }
 
     // Disable the zero-padding flag if a left-padding flag was provided.
-    if ((flags & FLAG_ZERO) && (flags & FLAG_LEFT)) {
+    if (flags & FLAG_LEFT) {
       flags &= ~FLAG_ZERO;
     }
 
@@ -340,6 +343,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
     if (*format == '.') {
       format++;
 
+      flags |= FLAG_PREC;
       precision = 0;
 
       if (*format == '*') {
@@ -434,6 +438,10 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
         flags |= FLAG_UPPER;
       }
 
+      if (!(flags & FLAG_PREC)) {
+        precision = MY_PRINTF_DEFAULT_PRECISION;
+      }
+
       double value = va_arg(args, double);
 
       count += _ftoa_out(file, flags, width, precision,
@@ -455,7 +463,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
       const char *ptr = va_arg(args, char *);
       int length = 0;
 
-      while (ptr[length]) {
+      while (ptr[length] && (flags & FLAG_PREC ? length < precision : true)) {
         length++;
       }
 
@@ -477,7 +485,7 @@ int my_vfprintf(FILE *file, const char *format, va_list args) {
 
     flags = 0;
     width = 0;
-    precision = MY_PRINTF_DEFAULT_PRECISION;
+    precision = 0;
 
     format++;
   }
@@ -516,3 +524,4 @@ int my_printf(const char *format, ...) {
 #undef FLAG_OCT
 #undef FLAG_BIN
 #undef FLAG_UPPER
+#undef FLAG_PREC
