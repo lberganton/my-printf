@@ -99,7 +99,7 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
              : flags & FLAG_BIN ? 2
                                 : 10;
 
-  while (value) {
+  do {
     // Get the last digit of value.
     char digit = value % base;
 
@@ -115,7 +115,7 @@ static int _itoa_out(FILE *file, int flags, int width, bool negative,
 
     // Remove the last digit from value.
     value /= base;
-  }
+  } while (value);
 
   // Zero padding.
   if (flags & FLAG_ZERO) {
